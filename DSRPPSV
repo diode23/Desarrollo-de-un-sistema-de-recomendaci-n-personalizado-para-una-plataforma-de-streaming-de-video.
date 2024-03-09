@@ -1,0 +1,38 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import linear_kernel
+
+# Cargar datos de películas y preferencias de usuarios
+movies_data = pd.read_csv('movies.csv')
+ratings_data = pd.read_csv('ratings.csv')
+
+# Combinar datos de películas y ratings
+combined_data = pd.merge(ratings_data, movies_data, on='movieId')
+
+# Crear matriz de usuario-item
+user_movie_matrix = combined_data.pivot_table(index='userId', columns='title', values='rating')
+
+# Rellenar valores nulos con 0
+user_movie_matrix = user_movie_matrix.fillna(0)
+
+# Dividir datos en conjunto de entrenamiento y prueba
+train_data, test_data = train_test_split(user_movie_matrix, test_size=0.2)
+
+# Calcular similitud coseno entre películas basado en contenido
+tfidf = TfidfVectorizer(stop_words='english')
+tfidf_matrix = tfidf.fit_transform(movies_data['genres'])
+cosine_sim = linear_kernel(tfidf_matrix, tfidf_matrix)
+
+# Función para obtener recomendaciones para un usuario específico
+def get_recommendations(user_id):
+    user_ratings = user_movie_matrix.loc[user_id].values.reshape(1, -1)
+    cosine_scores = list(enumerate(cosine_sim[user_ratings]))
+    cosine_scores = sorted(cosine_scores, key=lambda x: x[1], reverse=True)
+    top_scores = cosine_scores[1:6]
+    movie_indices = [i[0] for i in top_scores]
+    return movies_data['title'].iloc[movie_indices]
+
+# Obtener recomendaciones para un usuario específico (por ejemplo, usuario 1)
+recommendations_user_1 = get_recommendations(1)
+print(recommendations_user_1)
